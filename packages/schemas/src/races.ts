@@ -14,9 +14,17 @@ export const RacePlayerSchema = z.object({
 });
 export type RacePlayer = z.infer<typeof RacePlayerSchema>;
 
+export const RaceRulesSchema = z.object({
+	mode: z.enum(["time", "words", "quote", "custom"]),
+	value: z.number().min(0),
+	language: z.string().min(1).max(32),
+});
+export type RaceRules = z.infer<typeof RaceRulesSchema>;
+
 export const RaceSchema = z.object({
 	code: z.string().length(6),
 	text: z.string().min(1).max(2000),
+	rules: RaceRulesSchema,
 	state: RaceStateSchema,
 	startsAt: z.number().nullable().optional(),
 	players: z.array(RacePlayerSchema).min(1).max(2),
@@ -38,6 +46,7 @@ export type GuestIdentity = z.infer<typeof GuestIdentitySchema>;
 export const CreateRaceRequestSchema = z
 	.object({ text: z.string().min(1).max(2000) })
 	.extend(GuestIdentitySchema.shape)
+	.extend({ rules: RaceRulesSchema })
 	.strict();
 export type CreateRaceRequest = z.infer<typeof CreateRaceRequestSchema>;
 

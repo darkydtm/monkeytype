@@ -20,7 +20,11 @@ describe("RaceDAL.createRace", () => {
 	it("creates lobby with host player", async () => {
 		const insertOne = vi.fn().mockResolvedValue({ insertedId: "x" });
 		mockRacesCollection({ insertOne });
-		const race = await RaceDAL.createRace("uid1", "Bob", "hello world");
+		const race = await RaceDAL.createRace("uid1", "Bob", "hello world", {
+			mode: "words",
+			value: 2,
+			language: "english",
+		});
 		expect(race.code).toHaveLength(6);
 		expect(race.state).toBe("lobby");
 		expect(race.players).toHaveLength(1);

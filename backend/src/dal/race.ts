@@ -1,7 +1,7 @@
 import { ObjectId, type Collection, type WithId } from "mongodb";
 import * as db from "../init/db";
 import MonkeyError from "../utils/error";
-import { Race, RaceState } from "@monkeytype/schemas/races";
+import { Race, RaceRules, RaceState } from "@monkeytype/schemas/races";
 
 export type DBRace = Race & {
 	createdAt: number;
@@ -34,12 +34,14 @@ export async function createRace(
 	uid: string,
 	name: string,
 	text: string,
+	rules: RaceRules,
 ): Promise<Race> {
 	let lastError: unknown;
 	for (let attempt = 0; attempt < 3; attempt++) {
 		const race: Race = {
 			code: makeCode(),
 			text,
+			rules,
 			state: "lobby",
 			startsAt: null,
 			players: [{ uid, name, wpm: 0, acc: 100, progress: 0, done: false }],
@@ -73,6 +75,11 @@ export async function getRace(code: string): Promise<Race> {
 	if (doc === null || doc === undefined) {
 		throw new MonkeyError(404, "Race not found");
 	}
+	const rules: RaceRules = doc.rules ?? {
+		mode: "custom",
+		value: 0,
+		language: "english",
+	};
 	if (
 		doc.state === "countdown" &&
 		doc.startsAt !== null &&
@@ -85,6 +92,7 @@ export async function getRace(code: string): Promise<Race> {
 		return {
 			code: doc.code,
 			text: doc.text,
+			rules,
 			state: "running" as RaceState,
 			startsAt: doc.startsAt ?? null,
 			players: doc.players,
@@ -93,6 +101,7 @@ export async function getRace(code: string): Promise<Race> {
 	return {
 		code: doc.code,
 		text: doc.text,
+		rules,
 		state: doc.state as RaceState,
 		startsAt: doc.startsAt ?? null,
 		players: doc.players,

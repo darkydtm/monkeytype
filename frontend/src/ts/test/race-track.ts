@@ -1,5 +1,7 @@
 import * as CustomText from "./custom-text";
-import { setConfig } from "../config/setters";
+import { setConfig, toggleFunbox } from "../config/setters";
+import { Config } from "../config/store";
+import { getActiveFunboxes } from "./funbox/list";
 import * as TestLogic from "./test-logic";
 import { words } from "./test-words";
 import {
@@ -39,6 +41,9 @@ type ActiveRace = {
 	pushTimer: number | undefined;
 	countdownTimer: number | undefined;
 	donePushed: boolean;
+	savedFunboxes: string[];
+	savedPunctuation: boolean;
+	savedNumbers: boolean;
 };
 
 let active: ActiveRace | null = null;
@@ -173,6 +178,10 @@ export async function enterRaceTrack(code: string): Promise<void> {
 			return;
 		}
 		const race = res.body.data;
+		const savedFunboxes = getActiveFunboxes().map((fb) => fb.name);
+		for (const name of savedFunboxes) {
+			toggleFunbox(name);
+		}
 		active = {
 			code,
 			race,
@@ -180,10 +189,20 @@ export async function enterRaceTrack(code: string): Promise<void> {
 			pushTimer: undefined,
 			countdownTimer: undefined,
 			donePushed: false,
+			savedFunboxes,
+			savedPunctuation: Config.punctuation,
+			savedNumbers: Config.numbers,
 		};
+		const wordCount = race.text.split(" ").length;
 		CustomText.setText(race.text.split(" "));
-		CustomText.setLimitMode("word");
+		CustomText.setLimitMode(race.rules.mode === "time" ? "time" : "word");
+		CustomText.setLimitValue(
+			race.rules.mode === "time" ? race.rules.value : wordCount,
+		);
 		setConfig("mode", "custom");
+		setConfig("language", race.rules.language);
+		setConfig("punctuation", false);
+		setConfig("numbers", false);
 		mirrorEl()?.classList.remove("hidden");
 		if (
 			race.startsAt !== null &&
@@ -205,6 +224,13 @@ export async function enterRaceTrack(code: string): Promise<void> {
 }
 
 export async function exitRaceTrack(): Promise<void> {
+	if (active !== null) {
+		for (const name of active.savedFunboxes) {
+			toggleFunbox(name as Parameters<typeof toggleFunbox>[0]);
+		}
+		setConfig("punctuation", active.savedPunctuation);
+		setConfig("numbers", active.savedNumbers);
+	}
 	stopLoops();
 	active = null;
 	clearTrackCode();

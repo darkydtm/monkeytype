@@ -62,7 +62,7 @@ export async function createRace(
 	req: MonkeyRequest<undefined, CreateRaceRequest>,
 ): Promise<MonkeyResponse<{ code: string }>> {
 	const { uid, name } = await resolveIdentity(req);
-	const race = await RaceDAL.createRace(uid, name, req.body.text);
+	const race = await RaceDAL.createRace(uid, name, req.body.text, req.body.rules);
 	return new MonkeyResponse("Race created", { code: race.code });
 }
 
