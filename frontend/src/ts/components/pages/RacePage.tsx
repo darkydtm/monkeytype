@@ -12,9 +12,17 @@ import {
 	getGuestName,
 	getRaceCode,
 	pushProgressThrottled,
+	resetPushThrottle,
 	setGuestName,
 	setRaceCode,
 } from "./race-progress";
+import {
+	createTypingState,
+	eraseKey,
+	toRaceStats,
+	typeKey,
+	typingStats,
+} from "./race-typing";
 
 const POLL_MS = 500;
 const PUSH_MS = 250;
@@ -23,8 +31,12 @@ export function RacePage() {
 	const [code, setCode] = createSignal(getRaceCode());
 	const [tried, setTried] = createSignal("");
 	const [name, setName] = createSignal(getGuestName());
+	const [typing, setTyping] = createSignal(createTypingState(""));
+	let area: HTMLDivElement | undefined;
 	const playerName = (): string =>
 		name() === "" ? getGuestId().slice(6) : name();
+	const myStats = (): ReturnType<typeof toRaceStats> =>
+		toRaceStats(typingStats(typing(), Date.now()));
 	const [race, setRace] = createSignal<Race | null>(null);
 	const [now, setNow] = createSignal(Date.now());
 	let timer: number | undefined;
@@ -71,7 +83,7 @@ export function RacePage() {
 		const running = race()?.state === "running" && code() !== "";
 		if (running && pushTimer === undefined) {
 			pushTimer = window.setInterval(() => {
-				void pushProgressThrottled(code());
+				void pushProgressThrottled(code(), myStats);
 			}, PUSH_MS);
 		} else if (!running && pushTimer !== undefined) {
 			stopPush();
@@ -91,6 +103,58 @@ export function RacePage() {
 			void join();
 		}
 	});
+
+	createEffect(() => {
+		const text = race()?.text ?? "";
+		setTyping((prev) => (prev.text === text ? prev : createTypingState(text)));
+	});
+
+	createEffect(() => {
+		if (race()?.state === "running") area?.focus();
+	});
+
+	createEffect(() => {
+		if (myStats().done && race()?.state === "running" && code() !== "") {
+			resetPushThrottle();
+			void pushProgressThrottled(code(), myStats);
+		}
+	});
+
+	const onTypeKey = (e: KeyboardEvent): void => {
+		if (race()?.state !== "running") return;
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (e.key === "Backspace") {
+			e.preventDefault();
+			setTyping((s) => eraseKey(s));
+			return;
+		}
+		if (e.key.length !== 1) return;
+		e.preventDefault();
+		const now = Date.now();
+		setTyping((s) => typeKey(s, e.key, now));
+	};
+
+	const wordsWithOffsets = (): { word: string; start: number }[] => {
+		const text = typing().text;
+		if (text === "") return [];
+		let offset = 0;
+		return text.split(" ").map((word) => {
+			const start = offset;
+			offset += word.length + 1;
+			return { word, start };
+		});
+	};
+
+	const standings = (): { name: string; wpm: number; acc: number }[] =>
+		[...(race()?.players ?? [])]
+			.sort(
+				(a, b) =>
+					Number(b.done) - Number(a.done) ||
+					(a.finishTimeMs ?? Number.MAX_VALUE) -
+						(b.finishTimeMs ?? Number.MAX_VALUE) ||
+					b.progress - a.progress,
+			)
+			.map((p) => ({ name: p.name, wpm: Math.round(p.wpm), acc: Math.round(p.acc) }));
 
 	const goToRace = (raceCode: string): void => {
 		navigationEvent.dispatch({ url: `/race/${raceCode}`, options: {} });
@@ -192,6 +256,60 @@ export function RacePage() {
 				<Show when={code() !== ""}>
 					<div class="text-2xl">Code: {code()}</div>
 				</Show>
+				<Show when={race()?.text !== undefined && race()?.text !== ""}>
+						<div
+							ref={(el) => {
+								area = el;
+							}}
+							tabIndex={0}
+							onKeyDown={onTypeKey}
+							onClick={(e) => e.currentTarget.focus()}
+							class="outline-none cursor-text text-2xl leading-relaxed"
+						>
+							<For each={wordsWithOffsets()}>
+								{({ word, start }) => (
+									<span class="inline-block mr-[0.5ch]">
+										<For each={word.split("")}>
+											{(ch, i) => {
+												const index = start + i();
+												const st = typing().status[index];
+												return (
+													<span
+														class={cn(
+															st === "ok" && "text-text",
+															st === "bad" && "text-error",
+															st === null && "text-sub",
+															index === typing().pos &&
+																"border-b-2 border-caret",
+														)}
+													>
+														{ch}
+													</span>
+												);
+											}}
+										</For>
+									</span>
+								)}
+							</For>
+						</div>
+						<Show when={race()?.state === "running"}>
+							<div class="text-sub">
+								{myStats().wpm}wpm {myStats().acc}%{" "}
+								{typing().pos === 0 && "click the text and type"}
+							</div>
+						</Show>
+					</Show>
+					<Show when={race()?.state === "finished"}>
+						<div class="flex flex-col gap-1">
+							<For each={standings()}>
+								{(p, i) => (
+									<div>
+										{i() + 1}. {p.name} - {p.wpm}wpm {p.acc}%
+									</div>
+								)}
+							</For>
+						</div>
+					</Show>
 				<Show when={race() !== null}>
 					<div class="text-sub">
 						State: {race()?.state}
