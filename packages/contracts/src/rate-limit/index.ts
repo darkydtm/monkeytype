@@ -114,6 +114,32 @@ export const limits = {
     max: 60,
   },
 
+  // Races Routing
+  racesCreate: {
+    window: "minute",
+    max: 10,
+  },
+
+  racesJoin: {
+    window: "minute",
+    max: 30,
+  },
+
+  racesStart: {
+    window: "minute",
+    max: 10,
+  },
+
+  racesProgress: {
+    window: "minute",
+    max: 300,
+  },
+
+  racesGet: {
+    window: "minute",
+    max: 300,
+  },
+
   // PSA (Public Service Announcement) Routing
   psaGet: {
     window: "minute",
