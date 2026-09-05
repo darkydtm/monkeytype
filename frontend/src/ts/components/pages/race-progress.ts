@@ -13,6 +13,35 @@ export const PUSH_THROTTLE_MS = 250;
 
 export const [getRaceCode, setRaceCode] = createSignal("");
 
+const GUEST_ID_KEY = "raceGuestId";
+const GUEST_NAME_KEY = "raceGuestName";
+
+function randomSuffix(): string {
+	const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+	let s = "";
+	for (let i = 0; i < 8; i++) {
+		s += chars[Math.floor(Math.random() * chars.length)];
+	}
+	return s;
+}
+
+export function getGuestId(): string {
+	let id = localStorage.getItem(GUEST_ID_KEY);
+	if (id === null || !/^guest-[A-Za-z0-9]{8}$/.test(id)) {
+		id = `guest-${randomSuffix()}`;
+		localStorage.setItem(GUEST_ID_KEY, id);
+	}
+	return id;
+}
+
+export function getGuestName(): string {
+	return localStorage.getItem(GUEST_NAME_KEY) ?? getGuestId().slice(6);
+}
+
+export function setGuestName(name: string): void {
+	localStorage.setItem(GUEST_NAME_KEY, name.slice(0, 16));
+}
+
 export type RaceStats = {
 	wpm: number;
 	acc: number;
@@ -54,6 +83,7 @@ export async function pushProgressThrottled(
 			acc: stats.acc,
 			progress: stats.progress,
 			done: stats.done,
+			guestId: getGuestId(),
 		},
 	});
 	return true;

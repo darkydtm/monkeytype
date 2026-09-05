@@ -23,8 +23,29 @@ export const RaceSchema = z.object({
 });
 export type Race = z.infer<typeof RaceSchema>;
 
-export const CreateRaceRequestSchema = z.object({ text: z.string().min(1).max(2000) }).strict();
+export const GuestIdSchema = z.string().regex(/^guest-[A-Za-z0-9]{8}$/);
+export type GuestId = z.infer<typeof GuestIdSchema>;
+
+export const GuestNameSchema = z.string().min(1).max(16);
+export type GuestName = z.infer<typeof GuestNameSchema>;
+
+export const GuestIdentitySchema = z.object({
+	guestId: GuestIdSchema.optional(),
+	name: GuestNameSchema.optional(),
+});
+export type GuestIdentity = z.infer<typeof GuestIdentitySchema>;
+
+export const CreateRaceRequestSchema = z
+	.object({ text: z.string().min(1).max(2000) })
+	.extend(GuestIdentitySchema.shape)
+	.strict();
 export type CreateRaceRequest = z.infer<typeof CreateRaceRequestSchema>;
+
+export const JoinRaceRequestSchema = GuestIdentitySchema.strict();
+export type JoinRaceRequest = z.infer<typeof JoinRaceRequestSchema>;
+
+export const StartRaceRequestSchema = GuestIdentitySchema.strict();
+export type StartRaceRequest = z.infer<typeof StartRaceRequestSchema>;
 
 export const UpdateProgressRequestSchema = z
 	.object({
@@ -33,6 +54,7 @@ export const UpdateProgressRequestSchema = z
 		progress: z.number().min(0).max(100),
 		done: z.boolean(),
 	})
+	.extend({ guestId: GuestIdSchema.optional() })
 	.strict();
 export type UpdateProgressRequest = z.infer<typeof UpdateProgressRequestSchema>;
 

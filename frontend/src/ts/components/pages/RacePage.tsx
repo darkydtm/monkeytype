@@ -8,8 +8,11 @@ import { countdownMs, opponentProgress } from "./race-math";
 import { navigationEvent } from "../../events/navigation";
 import { showNoticeNotification } from "../../states/notifications";
 import {
+	getGuestId,
+	getGuestName,
 	getRaceCode,
 	pushProgressThrottled,
+	setGuestName,
 	setRaceCode,
 } from "./race-progress";
 
@@ -18,6 +21,10 @@ const PUSH_MS = 250;
 
 export function RacePage() {
 	const [code, setCode] = createSignal(getRaceCode());
+	const [tried, setTried] = createSignal("");
+	const [name, setName] = createSignal(getGuestName());
+	const playerName = (): string =>
+		name() === "" ? getGuestId().slice(6) : name();
 	const [race, setRace] = createSignal<Race | null>(null);
 	const [now, setNow] = createSignal(Date.now());
 	let timer: number | undefined;
@@ -77,9 +84,11 @@ export function RacePage() {
 
 	createEffect(() => {
 		const fromUrl = getRaceCode();
-		if (fromUrl !== "" && fromUrl !== code()) {
-			setCode(fromUrl);
-			startPoll();
+		if (fromUrl === "") return;
+		if (fromUrl !== code()) setCode(fromUrl);
+		if (race() === null && tried() !== fromUrl) {
+			setTried(fromUrl);
+			void join();
 		}
 	});
 
@@ -90,7 +99,11 @@ export function RacePage() {
 	const create = async (): Promise<void> => {
 		try {
 			const res = await RaceClient.create({
-				body: { text: "the quick brown fox jumps over the lazy dog ".repeat(5) },
+				body: {
+					text: "the quick brown fox jumps over the lazy dog ".repeat(5),
+					guestId: getGuestId(),
+					name: playerName(),
+				},
 			});
 			if (res.status === 200) {
 				setCode(res.body.data.code);
@@ -108,7 +121,10 @@ export function RacePage() {
 	const join = async (): Promise<void> => {
 		if (code() === "") return;
 		try {
-			const res = await RaceClient.join({ params: { code: code() } });
+			const res = await RaceClient.join({
+				params: { code: code() },
+				body: { guestId: getGuestId(), name: playerName() },
+			});
 			if (res.status !== 200) {
 				showNoticeNotification("Failed to join race");
 				return;
@@ -124,7 +140,10 @@ export function RacePage() {
 	const start = async (): Promise<void> => {
 		if (code() === "") return;
 		try {
-			const res = await RaceClient.start({ params: { code: code() } });
+			const res = await RaceClient.start({
+				params: { code: code() },
+				body: { guestId: getGuestId() },
+			});
 			if (res.status !== 200) {
 				showNoticeNotification("Only the host can start the race");
 				return;
@@ -146,12 +165,24 @@ export function RacePage() {
 		<Page id="race">
 			<div class="flex flex-col gap-4">
 				<div class="flex gap-2">
+					<input
+						class="bg-transparent border rounded px-2"
+						placeholder="name"
+						value={name()}
+						onInput={(e) => {
+							setName(e.currentTarget.value.slice(0, 16));
+							setGuestName(e.currentTarget.value);
+						}}
+					/>
 					<Button text="Create race" onClick={() => void create()} />
 					<input
 						class="bg-transparent border rounded px-2"
 						placeholder="CODE"
 						value={code()}
-						onInput={(e) => setCode(e.currentTarget.value.toUpperCase())}
+						onInput={(e) => {
+							setCode(e.currentTarget.value.toUpperCase());
+							setRaceCode("");
+						}}
 					/>
 					<Button text="Join" onClick={() => void join()} />
 					<Show when={race()?.state === "lobby"}>

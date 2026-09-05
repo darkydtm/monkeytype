@@ -9,8 +9,10 @@ import {
 } from "./util/api";
 import {
 	CreateRaceRequestSchema,
+	JoinRaceRequestSchema,
 	RaceCodeParamsSchema,
 	RaceSchema,
+	StartRaceRequestSchema,
 	UpdateProgressRequestSchema,
 } from "@monkeytype/schemas/races";
 
@@ -27,6 +29,7 @@ export const racesContract = c.router(
 				200: responseWithData(z.object({ code: z.string() })),
 			},
 			metadata: meta({
+				authenticationOptions: { isPublic: true },
 				rateLimit: "racesCreate",
 			}),
 		},
@@ -35,11 +38,12 @@ export const racesContract = c.router(
 			method: "POST",
 			path: "/:code/join",
 			pathParams: RaceCodeParamsSchema,
-			body: c.noBody(),
+			body: JoinRaceRequestSchema,
 			responses: {
 				200: responseWithData(RaceSchema),
 			},
 			metadata: meta({
+				authenticationOptions: { isPublic: true },
 				rateLimit: "racesJoin",
 			}),
 		},
@@ -48,11 +52,12 @@ export const racesContract = c.router(
 			method: "POST",
 			path: "/:code/start",
 			pathParams: RaceCodeParamsSchema,
-			body: c.noBody(),
+			body: StartRaceRequestSchema,
 			responses: {
 				200: MonkeyResponseSchema,
 			},
 			metadata: meta({
+				authenticationOptions: { isPublic: true },
 				rateLimit: "racesStart",
 			}),
 		},
@@ -66,6 +71,7 @@ export const racesContract = c.router(
 				200: MonkeyResponseSchema,
 			},
 			metadata: meta({
+				authenticationOptions: { isPublic: true },
 				rateLimit: "racesProgress",
 			}),
 		},
@@ -78,6 +84,7 @@ export const racesContract = c.router(
 				200: responseWithData(RaceSchema),
 			},
 			metadata: meta({
+				authenticationOptions: { isPublic: true },
 				rateLimit: "racesGet",
 			}),
 		},
