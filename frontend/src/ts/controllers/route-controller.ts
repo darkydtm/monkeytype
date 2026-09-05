@@ -1,5 +1,6 @@
 import * as PageController from "./page-controller";
 import * as PageTransition from "../legacy-states/page-transition";
+import { maybeEnterRaceTrack } from "../test/race-track";
 import { isAuthAvailable } from "../firebase";
 import { isAuthenticated } from "../states/core";
 import { isFunboxActive } from "../test/funbox/list";
@@ -53,6 +54,7 @@ const routes: Route[] = [
     path: "/",
     load: async (_params, options) => {
       await PageController.change("test", options);
+      await maybeEnterRaceTrack();
     },
   },
   {
