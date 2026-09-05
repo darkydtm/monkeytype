@@ -138,9 +138,16 @@ export function rateLimitRequest<
 }
 
 // Root Rate Limit
+const rootLimitMax = Number.parseInt(
+  process.env["ROOT_RATE_LIMIT_MAX"] ?? "",
+  10,
+);
 export const rootRateLimiter = rateLimit({
   windowMs: 60 * 1000 * 60,
-  limit: 1000 * REQUEST_MULTIPLIER,
+  limit:
+    Number.isSafeInteger(rootLimitMax) && rootLimitMax > 0
+      ? rootLimitMax
+      : 1000 * REQUEST_MULTIPLIER,
   keyGenerator: getKey,
   handler: (_req, _res, _next, _options): void => {
     throw new MonkeyError(
