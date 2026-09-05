@@ -16,7 +16,7 @@ import {
 	showSuccessNotification,
 } from "../states/notifications";
 import type { Race } from "@monkeytype/schemas/races";
-import { buildMirrorWords, standings } from "./race-mirror";
+import { buildMirrorWords, escapeHtml, standings } from "./race-mirror";
 
 const TRACK_KEY = "raceTrackCode";
 const POLL_MS = 500;
