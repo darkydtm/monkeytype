@@ -37,6 +37,7 @@ import {
   AccountSettingsUrlParamsSchema,
   readAccountSettingsGetParameters,
 } from "../states/account-settings";
+import { setRaceCode } from "../components/pages/race-progress";
 
 type ChangeOptions = {
   force?: boolean;
@@ -153,7 +154,11 @@ const pages = {
       readLeaderboardGetParameters(options.urlParams);
     },
   }),
-  race: solidPage("race"),
+  race: solidPage("race", {
+    beforeShow: async (options) => {
+      setRaceCode(options.params?.["code"] ?? "");
+    },
+  }),
 };
 
 function updateOpenGraphUrl(): void {

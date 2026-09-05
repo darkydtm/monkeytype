@@ -1,18 +1,25 @@
-import { createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Race } from "@monkeytype/schemas/races";
 import { Button } from "../common/Button";
 import { Page } from "../common/Page";
 import { cn } from "../../utils/cn";
 import { RaceClient } from "../../ape/races";
 import { countdownMs, opponentProgress } from "./race-math";
+import {
+	getRaceCode,
+	pushProgressThrottled,
+	setRaceCode,
+} from "./race-progress";
 
 const POLL_MS = 500;
+const PUSH_MS = 250;
 
 export function RacePage() {
-	const [code, setCode] = createSignal("");
+	const [code, setCode] = createSignal(getRaceCode());
 	const [race, setRace] = createSignal<Race | null>(null);
 	const [now, setNow] = createSignal(Date.now());
 	let timer: number | undefined;
+	let pushTimer: number | undefined;
 
 	const poll = async (): Promise<void> => {
 		if (code() === "") return;
@@ -20,6 +27,7 @@ export function RacePage() {
 		if (res.status === 200) {
 			setRace(res.body.data);
 			setNow(Date.now());
+			syncPushTimer();
 		}
 	};
 
@@ -33,7 +41,32 @@ export function RacePage() {
 		if (timer !== undefined) window.clearInterval(timer);
 		timer = undefined;
 	};
-	onCleanup(stopPoll);
+	const stopPush = (): void => {
+		if (pushTimer !== undefined) window.clearInterval(pushTimer);
+		pushTimer = undefined;
+	};
+	const syncPushTimer = (): void => {
+		const running = race()?.state === "running" && code() !== "";
+		if (running && pushTimer === undefined) {
+			pushTimer = window.setInterval(() => {
+				void pushProgressThrottled(code());
+			}, PUSH_MS);
+		} else if (!running && pushTimer !== undefined) {
+			stopPush();
+		}
+	};
+	onCleanup(() => {
+		stopPoll();
+		stopPush();
+	});
+
+	createEffect(() => {
+		const fromUrl = getRaceCode();
+		if (fromUrl !== "" && fromUrl !== code()) {
+			setCode(fromUrl);
+			startPoll();
+		}
+	});
 
 	const create = async (): Promise<void> => {
 		const res = await RaceClient.create({
@@ -41,6 +74,7 @@ export function RacePage() {
 		});
 		if (res.status === 200) {
 			setCode(res.body.data.code);
+			setRaceCode(res.body.data.code);
 			startPoll();
 		}
 	};
@@ -48,6 +82,7 @@ export function RacePage() {
 	const join = async (): Promise<void> => {
 		if (code() === "") return;
 		await RaceClient.join({ params: { code: code() } });
+		setRaceCode(code());
 		startPoll();
 	};
 
