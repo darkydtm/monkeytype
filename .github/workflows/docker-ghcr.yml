@@ -34,6 +34,8 @@ jobs:
           tags: |
             ghcr.io/darkydtm/monkeytype-backend:latest
             ghcr.io/darkydtm/monkeytype-backend:${{ github.sha }}
+          build-args: |
+            server_version=${{ github.sha }}
       - name: Frontend build and push
         uses: docker/build-push-action@v7
         with:
