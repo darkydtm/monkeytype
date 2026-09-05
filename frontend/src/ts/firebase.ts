@@ -60,6 +60,16 @@ export async function init(callback: ReadyCallback): Promise<void> {
     ).firebaseConfig;
 
     readyCallback = callback;
+    if (
+      firebaseConfig?.apiKey === undefined ||
+      firebaseConfig.apiKey === "" ||
+      firebaseConfig.apiKey.startsWith("###")
+    ) {
+      //self-host without firebase keys, auth stays unavailable
+      setUserState(null);
+      await callback(false, null);
+      return;
+    }
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     Auth = getAuth(app);
 
