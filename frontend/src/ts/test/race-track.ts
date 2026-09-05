@@ -112,7 +112,8 @@ async function poll(): Promise<void> {
 			await pushStats(true);
 		}
 		renderMirror();
-	} catch {
+	} catch (e) {
+		console.error("race poll failed", e);
 		showNoticeNotification("Failed to load race");
 	}
 }
@@ -217,7 +218,8 @@ export async function enterRaceTrack(code: string): Promise<void> {
 		} else {
 			startRacing();
 		}
-	} catch {
+	} catch (e) {
+		console.error("enterRaceTrack failed", e);
 		showNoticeNotification("Failed to load race");
 		active = null;
 	}
