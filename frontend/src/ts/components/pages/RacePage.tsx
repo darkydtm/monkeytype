@@ -1,0 +1,114 @@
+import { createSignal, For, onCleanup, Show } from "solid-js";
+import type { Race } from "@monkeytype/schemas/races";
+import { Button } from "../common/Button";
+import { Page } from "../common/Page";
+import { cn } from "../../utils/cn";
+import { RaceClient } from "../../ape/races";
+import { countdownMs, opponentProgress } from "./race-math";
+
+const POLL_MS = 500;
+
+export function RacePage() {
+	const [code, setCode] = createSignal("");
+	const [race, setRace] = createSignal<Race | null>(null);
+	const [now, setNow] = createSignal(Date.now());
+	let timer: number | undefined;
+
+	const poll = async (): Promise<void> => {
+		if (code() === "") return;
+		const res = await RaceClient.get({ params: { code: code() } });
+		if (res.status === 200) {
+			setRace(res.body.data);
+			setNow(Date.now());
+		}
+	};
+
+	const startPoll = (): void => {
+		stopPoll();
+		timer = window.setInterval(() => {
+			void poll();
+		}, POLL_MS);
+	};
+	const stopPoll = (): void => {
+		if (timer !== undefined) window.clearInterval(timer);
+		timer = undefined;
+	};
+	onCleanup(stopPoll);
+
+	const create = async (): Promise<void> => {
+		const res = await RaceClient.create({
+			body: { text: "the quick brown fox jumps over the lazy dog ".repeat(5) },
+		});
+		if (res.status === 200) {
+			setCode(res.body.data.code);
+			startPoll();
+		}
+	};
+
+	const join = async (): Promise<void> => {
+		if (code() === "") return;
+		await RaceClient.join({ params: { code: code() } });
+		startPoll();
+	};
+
+	const start = async (): Promise<void> => {
+		if (code() === "") return;
+		await RaceClient.start({ params: { code: code() } });
+		await poll();
+	};
+
+	const countdown = (): number => {
+		now();
+		return race()?.startsAt == null
+			? 0
+			: countdownMs(race()?.startsAt as number);
+	};
+
+	return (
+		<Page id="race">
+			<div class="flex flex-col gap-4">
+				<div class="flex gap-2">
+					<Button text="Create race" onClick={() => void create()} />
+					<input
+						class="bg-transparent border rounded px-2"
+						placeholder="CODE"
+						value={code()}
+						onInput={(e) => setCode(e.currentTarget.value.toUpperCase())}
+					/>
+					<Button text="Join" onClick={() => void join()} />
+					<Show when={race()?.state === "lobby"}>
+						<Button text="Start" onClick={() => void start()} />
+					</Show>
+				</div>
+				<Show when={code() !== ""}>
+					<div class="text-2xl">Code: {code()}</div>
+				</Show>
+				<Show when={race() !== null}>
+					<div class="text-sub">
+						State: {race()?.state}
+						<Show when={race()?.state === "countdown"}>
+							{" "}
+							- starts in {Math.ceil(countdown() / 1000)}s
+						</Show>
+						<Show when={race()?.state === "finished"}> - finished</Show>
+					</div>
+					<For each={race()?.players ?? []}>
+						{(p) => (
+							<div class={cn("flex gap-2 items-center", p.done && "opacity-60")}>
+								<span>
+									{p.name} {Math.round(p.wpm)}wpm
+								</span>
+								<div class="h-2 flex-1 rounded bg-sub">
+									<div
+										class="h-full rounded bg-main"
+										style={{ width: `${opponentProgress(p.progress)}%` }}
+									/>
+								</div>
+							</div>
+						)}
+					</For>
+				</Show>
+			</div>
+		</Page>
+	);
+}

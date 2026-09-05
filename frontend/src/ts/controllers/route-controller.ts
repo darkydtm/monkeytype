@@ -155,6 +155,25 @@ const routes: Route[] = [
       await PageController.change("friends", options);
     },
   },
+  {
+    path: "/race",
+    load: async (_params, options) => {
+      await PageController.change("race", options);
+    },
+  },
+  {
+    path: "/race/:code",
+    load: async (params, options) => {
+      await PageController.change("race", {
+        ...options,
+        force: true,
+        params: {
+          code: params["code"] as string,
+        },
+        data: options.data,
+      });
+    },
+  },
 ];
 
 export async function navigate(

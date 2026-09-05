@@ -21,6 +21,7 @@ import { LeaderboardPage } from "./pages/leaderboard/LeaderboardPage";
 import { LoginPage } from "./pages/login/LoginPage";
 import { ProfilePage } from "./pages/profile/ProfilePage";
 import { ProfileSearchPage } from "./pages/profile/ProfileSearchPage";
+import { RacePage } from "./pages/RacePage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import { CapsWarning } from "./pages/test/CapsWarning";
 import { CompositionDisplay } from "./pages/test/CompositionDisplay";
@@ -68,6 +69,7 @@ const components: Record<string, () => JSXElement> = {
   livestatstextbottom: () => <LiveStatsTextBottom />,
   bartimerprogress: () => <BarTimerProgress />,
   premid: () => <Premid />,
+  racepage: () => <RacePage />,
 };
 
 function mountToMountpoint(name: string, component: () => JSXElement): void {

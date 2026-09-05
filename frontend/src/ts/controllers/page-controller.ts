@@ -153,6 +153,7 @@ const pages = {
       readLeaderboardGetParameters(options.urlParams);
     },
   }),
+  race: solidPage("race"),
 };
 
 function updateOpenGraphUrl(): void {
