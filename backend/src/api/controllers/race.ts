@@ -1,4 +1,5 @@
 import { MonkeyResponse } from "../../utils/monkey-response";
+import MonkeyError from "../../utils/error";
 import { MonkeyRequest } from "../types";
 import * as RaceDAL from "../../dal/race";
 import * as UserDAL from "../../dal/user";
@@ -22,7 +23,10 @@ async function resolveDisplayName(
 		if (user.name !== undefined && user.name !== "") {
 			return user.name;
 		}
-	} catch {
+	} catch (error) {
+		if (!(error instanceof MonkeyError) || error.status !== 404) {
+			throw error;
+		}
 		// fall through to email/uid fallback below
 	}
 	const prefix = email.split("@")[0];
