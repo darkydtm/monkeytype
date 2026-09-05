@@ -13,7 +13,15 @@ RUN npm i -g pnpm@11.21.0 && \
     npm run build
 
 #deploy (install all non-dev dependencies in a single node_module folder)
-RUN pnpm deploy --legacy --filter backend --prod /prod/backend
+#pnpm deploy leaves workspace deps as dead symlinks, replace with real copies
+RUN pnpm deploy --legacy --filter backend --prod /prod/backend && \
+    rm -rf /prod/backend/node_modules/@monkeytype && \
+    mkdir -p /prod/backend/node_modules/@monkeytype && \
+    for p in challenges contracts funbox schemas util; do \
+      mkdir -p /prod/backend/node_modules/@monkeytype/$p && \
+      cp /app/packages/$p/package.json /prod/backend/node_modules/@monkeytype/$p/ && \
+      cp -r /app/packages/$p/dist /prod/backend/node_modules/@monkeytype/$p/dist; \
+    done
 
 #---------------------------------
 
