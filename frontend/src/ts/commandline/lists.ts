@@ -11,6 +11,7 @@ import TagsCommands from "./lists/tags";
 import CustomThemesListCommands from "./lists/custom-themes-list";
 import PresetsCommands from "./lists/presets";
 import FunboxCommands from "./lists/funbox";
+import RaceCommands from "./lists/race";
 import ThemesCommands from "./lists/themes";
 import LoadChallengeCommands from "./lists/load-challenge";
 
@@ -75,6 +76,7 @@ export const commands: CommandsSubgroup = {
     },
     ...QuoteFavoriteCommands,
     ...BailOutCommands,
+    ...RaceCommands,
     {
       id: "shareTestSettings",
       display: "Share test settings",

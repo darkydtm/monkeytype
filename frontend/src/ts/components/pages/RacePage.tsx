@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
-import type { Race, RaceRules } from "@monkeytype/schemas/races";
+import type { Race } from "@monkeytype/schemas/races";
 import { Button } from "../common/Button";
 import { Page } from "../common/Page";
 import { cn } from "../../utils/cn";
@@ -7,9 +7,8 @@ import { RaceClient } from "../../ape/races";
 import { countdownMs, opponentProgress } from "./race-math";
 import { navigationEvent } from "../../events/navigation";
 import { showNoticeNotification } from "../../states/notifications";
-import { Config } from "../../config/store";
-import { words } from "../../test/test-words";
 import {
+	captureRaceSource,
 	getGuestId,
 	getGuestName,
 	getRaceCode,
@@ -19,32 +18,6 @@ import {
 import { setTrackCode } from "../../test/race-track";
 
 const POLL_MS = 500;
-
-const FALLBACK_TEXT = "the quick brown fox jumps over the lazy dog ".repeat(5).trim();
-
-function captureRaceSource(): { text: string; rules: RaceRules } {
-	const list = words
-		.get()
-		.map((w) => w.text)
-		.slice(0, 100);
-	const text =
-		list.length > 0 ? list.join(" ").slice(0, 2000) : FALLBACK_TEXT;
-	const hostMode = Config.mode;
-	const mode =
-		hostMode === "time" || hostMode === "words" || hostMode === "quote"
-			? hostMode
-			: "custom";
-	const value =
-		hostMode === "time"
-			? Config.time
-			: hostMode === "words"
-				? Config.words
-				: list.length;
-	return {
-		text,
-		rules: { mode, value, language: Config.language },
-	};
-}
 
 export function RacePage() {
 	const [code, setCode] = createSignal(getRaceCode());
