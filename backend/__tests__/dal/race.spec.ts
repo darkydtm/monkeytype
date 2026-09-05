@@ -79,6 +79,50 @@ describe("RaceDAL.startRace", () => {
 	});
 });
 
+describe("RaceDAL.getRace countdown->running transition", () => {
+	it("writes running once startsAt passes", async () => {
+		const updateOne = vi.fn().mockResolvedValue({});
+		mockRacesCollection({
+			updateOne,
+			findOne: vi.fn().mockResolvedValue({
+				code: "AAAAAA",
+				text: "hi",
+				state: "countdown",
+				startsAt: Date.now() - 1000,
+				players: [
+					{ uid: "u1", name: "A", wpm: 0, acc: 100, progress: 0, done: false },
+				],
+			}),
+		});
+		const race = await RaceDAL.getRace("AAAAAA");
+		expect(race.state).toBe("running");
+		expect(updateOne).toHaveBeenCalledOnce();
+		expect(updateOne).toHaveBeenCalledWith(
+			{ code: "AAAAAA" },
+			{ $set: { state: "running" } },
+		);
+	});
+
+	it("keeps countdown while startsAt is in the future", async () => {
+		const updateOne = vi.fn().mockResolvedValue({});
+		mockRacesCollection({
+			updateOne,
+			findOne: vi.fn().mockResolvedValue({
+				code: "AAAAAA",
+				text: "hi",
+				state: "countdown",
+				startsAt: Date.now() + 60_000,
+				players: [
+					{ uid: "u1", name: "A", wpm: 0, acc: 100, progress: 0, done: false },
+				],
+			}),
+		});
+		const race = await RaceDAL.getRace("AAAAAA");
+		expect(race.state).toBe("countdown");
+		expect(updateOne).not.toHaveBeenCalled();
+	});
+});
+
 describe("RaceDAL.updateProgress", () => {
 	it("marks race finished when all players are done", async () => {
 		const updateOne = vi.fn().mockResolvedValue({});
@@ -87,8 +131,8 @@ describe("RaceDAL.updateProgress", () => {
 			findOne: vi.fn().mockResolvedValue({
 				code: "AAAAAA",
 				text: "hi",
-				state: "countdown",
-				startsAt: 1,
+				state: "running",
+				startsAt: Date.now() - 5000,
 				players: [
 					{ uid: "u1", name: "A", wpm: 10, acc: 100, progress: 100, done: true },
 				],
@@ -101,5 +145,55 @@ describe("RaceDAL.updateProgress", () => {
 			done: true,
 		});
 		expect(updateOne).toHaveBeenCalledTimes(2);
+	});
+
+	it("rejects progress from non-member with 403", async () => {
+		const updateOne = vi.fn().mockResolvedValue({});
+		mockRacesCollection({
+			updateOne,
+			findOne: vi.fn().mockResolvedValue({
+				code: "AAAAAA",
+				text: "hi",
+				state: "running",
+				startsAt: Date.now() - 5000,
+				players: [
+					{ uid: "u1", name: "A", wpm: 0, acc: 100, progress: 0, done: false },
+				],
+			}),
+		});
+		const error = await RaceDAL.updateProgress("AAAAAA", "u2", {
+			wpm: 10,
+			acc: 100,
+			progress: 10,
+			done: false,
+		}).catch((e) => e);
+		expect(error).toBeInstanceOf(MonkeyError);
+		expect((error as MonkeyError).status).toBe(403);
+		expect(updateOne).not.toHaveBeenCalled();
+	});
+
+	it("rejects progress on finished race with 409", async () => {
+		const updateOne = vi.fn().mockResolvedValue({});
+		mockRacesCollection({
+			updateOne,
+			findOne: vi.fn().mockResolvedValue({
+				code: "AAAAAA",
+				text: "hi",
+				state: "finished",
+				startsAt: Date.now() - 5000,
+				players: [
+					{ uid: "u1", name: "A", wpm: 10, acc: 100, progress: 100, done: true },
+				],
+			}),
+		});
+		const error = await RaceDAL.updateProgress("AAAAAA", "u1", {
+			wpm: 10,
+			acc: 100,
+			progress: 100,
+			done: true,
+		}).catch((e) => e);
+		expect(error).toBeInstanceOf(MonkeyError);
+		expect((error as MonkeyError).status).toBe(409);
+		expect(updateOne).not.toHaveBeenCalled();
 	});
 });

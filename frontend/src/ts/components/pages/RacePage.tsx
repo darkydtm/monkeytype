@@ -5,6 +5,8 @@ import { Page } from "../common/Page";
 import { cn } from "../../utils/cn";
 import { RaceClient } from "../../ape/races";
 import { countdownMs, opponentProgress } from "./race-math";
+import { navigationEvent } from "../../events/navigation";
+import { showNoticeNotification } from "../../states/notifications";
 import {
 	getRaceCode,
 	pushProgressThrottled,
@@ -23,16 +25,29 @@ export function RacePage() {
 
 	const poll = async (): Promise<void> => {
 		if (code() === "") return;
-		const res = await RaceClient.get({ params: { code: code() } });
-		if (res.status === 200) {
+		try {
+			const res = await RaceClient.get({ params: { code: code() } });
+			if (res.status !== 200) {
+				showNoticeNotification("Race not found");
+				stopPoll();
+				return;
+			}
 			setRace(res.body.data);
 			setNow(Date.now());
+			if (res.body.data.state === "finished") {
+				stopPoll();
+				stopPush();
+				return;
+			}
 			syncPushTimer();
+		} catch {
+			showNoticeNotification("Failed to load race");
 		}
 	};
 
 	const startPoll = (): void => {
 		stopPoll();
+		void poll();
 		timer = window.setInterval(() => {
 			void poll();
 		}, POLL_MS);
@@ -68,28 +83,56 @@ export function RacePage() {
 		}
 	});
 
+	const goToRace = (raceCode: string): void => {
+		navigationEvent.dispatch({ url: `/race/${raceCode}`, options: {} });
+	};
+
 	const create = async (): Promise<void> => {
-		const res = await RaceClient.create({
-			body: { text: "the quick brown fox jumps over the lazy dog ".repeat(5) },
-		});
-		if (res.status === 200) {
-			setCode(res.body.data.code);
-			setRaceCode(res.body.data.code);
-			startPoll();
+		try {
+			const res = await RaceClient.create({
+				body: { text: "the quick brown fox jumps over the lazy dog ".repeat(5) },
+			});
+			if (res.status === 200) {
+				setCode(res.body.data.code);
+				setRaceCode(res.body.data.code);
+				startPoll();
+				goToRace(res.body.data.code);
+			} else {
+				showNoticeNotification("Failed to create race");
+			}
+		} catch {
+			showNoticeNotification("Failed to create race");
 		}
 	};
 
 	const join = async (): Promise<void> => {
 		if (code() === "") return;
-		await RaceClient.join({ params: { code: code() } });
-		setRaceCode(code());
-		startPoll();
+		try {
+			const res = await RaceClient.join({ params: { code: code() } });
+			if (res.status !== 200) {
+				showNoticeNotification("Failed to join race");
+				return;
+			}
+			setRaceCode(code());
+			startPoll();
+			goToRace(code());
+		} catch {
+			showNoticeNotification("Failed to join race");
+		}
 	};
 
 	const start = async (): Promise<void> => {
 		if (code() === "") return;
-		await RaceClient.start({ params: { code: code() } });
-		await poll();
+		try {
+			const res = await RaceClient.start({ params: { code: code() } });
+			if (res.status !== 200) {
+				showNoticeNotification("Only the host can start the race");
+				return;
+			}
+			await poll();
+		} catch {
+			showNoticeNotification("Failed to start race");
+		}
 	};
 
 	const countdown = (): number => {

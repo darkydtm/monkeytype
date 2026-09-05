@@ -22,34 +22,73 @@ function makeCode(): string {
 	return s;
 }
 
+function isDuplicateKey(error: unknown): boolean {
+	return (
+		error !== null &&
+		typeof error === "object" &&
+		"code" in error &&
+		(error as { code: unknown }).code === 11000
+	);
+}
+
 export async function createRace(
 	uid: string,
 	name: string,
 	text: string,
 ): Promise<Race> {
-	const race: Race = {
-		code: makeCode(),
-		text,
-		state: "lobby",
-		startsAt: null,
-		players: [{ uid, name, wpm: 0, acc: 100, progress: 0, done: false }],
-	};
-	await col().insertOne({
-		...race,
-		createdAt: Date.now(),
-		expiresAt: new Date(Date.now() + 3600_000),
-	} as DBRace);
-	void col().createIndex({ code: 1 }, { unique: true }).catch(() => undefined);
-	void col()
-		.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
-		.catch(() => undefined);
-	return race;
+	let lastError: unknown;
+	for (let attempt = 0; attempt < 3; attempt++) {
+		const race: Race = {
+			code: makeCode(),
+			text,
+			state: "lobby",
+			startsAt: null,
+			players: [{ uid, name, wpm: 0, acc: 100, progress: 0, done: false }],
+		};
+		try {
+			await col().insertOne({
+				...race,
+				createdAt: Date.now(),
+				expiresAt: new Date(Date.now() + 3600_000),
+			} as DBRace);
+			void col()
+				.createIndex({ code: 1 }, { unique: true })
+				.catch(() => undefined);
+			void col()
+				.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
+				.catch(() => undefined);
+			return race;
+		} catch (error) {
+			lastError = error;
+			if (!isDuplicateKey(error)) {
+				throw error;
+			}
+		}
+	}
+	throw lastError;
 }
 
 export async function getRace(code: string): Promise<Race> {
 	const doc = await col().findOne({ code } as any);
 	if (doc === null || doc === undefined) {
 		throw new MonkeyError(404, "Race not found");
+	}
+	if (
+		doc.state === "countdown" &&
+		doc.startsAt !== null &&
+		doc.startsAt !== undefined &&
+		Date.now() >= doc.startsAt
+	) {
+		await col().updateOne({ code } as any, {
+			$set: { state: "running" },
+		} as any);
+		return {
+			code: doc.code,
+			text: doc.text,
+			state: "running" as RaceState,
+			startsAt: doc.startsAt ?? null,
+			players: doc.players,
+		};
 	}
 	return {
 		code: doc.code,
@@ -101,6 +140,13 @@ export async function updateProgress(
 	uid: string,
 	p: { wpm: number; acc: number; progress: number; done: boolean },
 ): Promise<void> {
+	const race = await getRace(code);
+	if (!race.players.some((player) => player.uid === uid)) {
+		throw new MonkeyError(403, "Not a race member");
+	}
+	if (race.state !== "countdown" && race.state !== "running") {
+		throw new MonkeyError(409, "Race is not in progress");
+	}
 	const doneAt = p.done ? Date.now() : undefined;
 	await col().updateOne({ code, "players.uid": uid } as any, {
 		$set: {
@@ -111,14 +157,14 @@ export async function updateProgress(
 			...(p.done ? { "players.$.finishTimeMs": doneAt } : {}),
 		},
 	} as any);
-	const race = await getRace(code);
+	const updated = await getRace(code);
 	if (
-		race.players.length > 0 &&
-		race.players.every((x) => x.done) &&
-		race.state !== "finished"
+		updated.players.length > 0 &&
+		updated.players.every((x) => x.done) &&
+		updated.state !== "finished"
 	) {
 		await col().updateOne({ code } as any, {
-			$set: { state: "finished" },
+			$set: { state: "finished", expiresAt: new Date(Date.now() + 3600_000) },
 		} as any);
 	}
 }
