@@ -1,15 +1,14 @@
-import { Collection } from "mongodb";
+import { ObjectId, type Collection, type WithId } from "mongodb";
 import * as db from "../init/db";
 import MonkeyError from "../utils/error";
 import { Race, RaceState } from "@monkeytype/schemas/races";
 
 export type DBRace = Race & {
-	_id?: unknown;
 	createdAt: number;
 	expiresAt: Date;
 };
 
-function col(): Collection<DBRace> {
+function col(): Collection<WithId<DBRace>> {
 	return db.collection<DBRace>("races");
 }
 
@@ -48,9 +47,10 @@ export async function createRace(
 		try {
 			await col().insertOne({
 				...race,
+				_id: new ObjectId(),
 				createdAt: Date.now(),
 				expiresAt: new Date(Date.now() + 3600_000),
-			} as DBRace);
+			});
 			void col()
 				.createIndex({ code: 1 }, { unique: true })
 				.catch(() => undefined);
